@@ -44,9 +44,6 @@ public class UserService {
         String accessToken = jwtTokenProvider.generateAccessToken(user.getEmail(), user.getRole());
         String refreshToken = jwtTokenProvider.generateRefreshToken(user.getEmail());
 
-        user.setRefreshToken(refreshToken);
-        userRepository.save(user);
-
         return new LoginResponseDto(accessToken, refreshToken);
     }
 }

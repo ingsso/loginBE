@@ -30,9 +30,6 @@ public class User {
 
     private String phone;
 
-    @Column(length = 500)
-    private String refreshToken;
-
     public User(String socialId, String provider, String email, String role) {
         this.socialId = socialId;
         this.provider = provider;

@@ -64,12 +64,13 @@ public class UserController {
         }
 
         String email = jwtTokenProvider.getEmailFromToken(refreshToken);
+
+        if (!jwtTokenProvider.validateRefreshToken(refreshToken)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("서버의 토큰 정보와 일치하지 않습니다.");
+        }
+
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("사용자 없음"));
-
-        if (!refreshToken.equals(user.getRefreshToken())) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("서버에 저장된 refreshToken과 다릅니다.");
-        }
 
         String newAccessToken = jwtTokenProvider.generateAccessToken(email, user.getRole());
 
@@ -85,8 +86,7 @@ public class UserController {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("사용자 없음"));
 
-        user.setRefreshToken(null);
-        userRepository.save(user);
+        jwtTokenProvider.deleteRefreshToken(email);
 
         Cookie refreshCookie = new Cookie("refreshToken", token);
         refreshCookie.setHttpOnly(true);

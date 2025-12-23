@@ -16,10 +16,31 @@ services:
       - mysql_data:/var/lib/mysql
     networks:
       - teachers_network
+  redis:
+    image: redis:latest
+    container_name: basic-redis
+    restart: always
+    ports:
+      - "6379:6379"
+    networks:
+      - teachers_network
+  redisinsight:
+    image: redis/redisinsight:latest
+    container_name: simple-redisinsight
+    ports:
+      - 5540:5540
+    networks:
+      - teachers_network
+    depends_on:
+      - redis
+    volumes:
+      - redis_insight_volume_data:/db
 
 volumes:
   mysql_data:
     driver: local
+  redis_volume_data:
+  redis_insight_volume_data:
 
 networks:
   teachers_network:

@@ -54,10 +54,6 @@ public class KakaoOAuthService {
         String accessToken = jwtTokenProvider.generateAccessToken(user.getEmail(), user.getRole());
         String refreshToken = jwtTokenProvider.generateRefreshToken(user.getEmail());
 
-        // 6. Refresh Token DB 업데이트 및 쿠키 설정
-        user.setRefreshToken(refreshToken);
-        userRepository.save(user);
-
         setRefreshTokenCookie(response, refreshToken);
 
         return new LoginResponseDto(accessToken, null);
