@@ -26,6 +26,7 @@ public class UserService {
                 .username(req.getUsername())
                 .email(req.getEmail())
                 .password(passwordEncoder.encode(req.getPassword()))
+                .phone(req.getPhone())
                 .role("ROLE_USER")
                 .build();
 

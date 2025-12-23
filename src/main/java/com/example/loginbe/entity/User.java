@@ -28,6 +28,8 @@ public class User {
 
     private String role;
 
+    private String phone;
+
     @Column(length = 500)
     private String refreshToken;
 
