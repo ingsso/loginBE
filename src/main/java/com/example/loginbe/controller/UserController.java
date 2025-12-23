@@ -1,0 +1,109 @@
+package com.example.loginbe.controller;
+
+import com.example.loginbe.dto.LoginRequestDto;
+import com.example.loginbe.dto.LoginResponseDto;
+import com.example.loginbe.dto.UserRequestDto;
+import com.example.loginbe.entity.User;
+import com.example.loginbe.repository.UserRepository;
+import com.example.loginbe.service.KakaoOAuthService;
+import com.example.loginbe.service.UserService;
+import com.example.loginbe.security.util.JwtTokenProvider;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.Map;
+
+@RestController
+@RequestMapping("/api/auth")
+@RequiredArgsConstructor
+public class UserController {
+    private final UserService userService;
+    private final KakaoOAuthService kakaoOAuthService;
+    private final JwtTokenProvider jwtTokenProvider;
+    private final UserRepository userRepository;
+
+    @PostMapping("/signup")
+    public String signup(@RequestBody UserRequestDto req) {
+        userService.signup(req);
+        return "회원가입 성공";
+    }
+
+    @PostMapping("/login")
+    public ResponseEntity<LoginResponseDto> login(@RequestBody LoginRequestDto req,
+                                                  HttpServletResponse res) {
+        LoginResponseDto tokens = userService.login(req);
+
+        Cookie refreshCookie = new Cookie("refreshToken", tokens.getRefreshToken());
+        refreshCookie.setHttpOnly(true);
+        refreshCookie.setPath("/");
+        refreshCookie.setMaxAge(7 * 24 * 60 * 60);
+
+        res.addCookie(refreshCookie);
+
+        return ResponseEntity.ok(new LoginResponseDto(tokens.getAccessToken(), null));
+    }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<?> refresh(HttpServletRequest req) {
+        String refreshToken = null;
+        if (req.getCookies() != null) {
+            for (Cookie cookie : req.getCookies()) {
+                if (cookie.getName().equals("refreshToken")) {
+                    refreshToken = cookie.getValue();
+                }
+            }
+        }
+
+        if (refreshToken == null || !jwtTokenProvider.validateToken(refreshToken)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("유효하지 않는 refreshToken 입니다.");
+        }
+
+        String email = jwtTokenProvider.getEmailFromToken(refreshToken);
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("사용자 없음"));
+
+        if (!refreshToken.equals(user.getRefreshToken())) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("서버에 저장된 refreshToken과 다릅니다.");
+        }
+
+        String newAccessToken = jwtTokenProvider.generateAccessToken(email, user.getRole());
+
+        return ResponseEntity.ok(new LoginResponseDto(newAccessToken, null));
+    }
+
+    @PostMapping("/logout")
+    public String logout(@RequestHeader("Authorization") String accessToken,
+                         HttpServletResponse res) {
+        String token = accessToken.replace("Bearer ", "");
+        String email = jwtTokenProvider.getEmailFromToken(token);
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("사용자 없음"));
+
+        user.setRefreshToken(null);
+        userRepository.save(user);
+
+        Cookie refreshCookie = new Cookie("refreshToken", token);
+        refreshCookie.setHttpOnly(true);
+        refreshCookie.setMaxAge(0);
+        refreshCookie.setPath("/");
+        res.addCookie(refreshCookie);
+
+        return "로그아웃 성공";
+    }
+
+    @PostMapping("/kakao")
+    public ResponseEntity<?> kakaoLogin(@RequestBody Map<String, String> body,
+                                        HttpServletResponse response) {
+        String code = body.get("code");
+        LoginResponseDto tokens = kakaoOAuthService.kakaoLogin(code, response);
+        return ResponseEntity.ok(tokens);
+    }
+
+
+}
