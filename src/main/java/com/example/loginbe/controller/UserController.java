@@ -3,8 +3,6 @@ package com.example.loginbe.controller;
 import com.example.loginbe.dto.LoginRequestDto;
 import com.example.loginbe.dto.LoginResponseDto;
 import com.example.loginbe.dto.UserRequestDto;
-import com.example.loginbe.entity.User;
-import com.example.loginbe.repository.UserRepository;
 import com.example.loginbe.service.KakaoOAuthService;
 import com.example.loginbe.service.UserService;
 import com.example.loginbe.security.util.JwtTokenProvider;
@@ -25,7 +23,6 @@ public class UserController {
     private final UserService userService;
     private final KakaoOAuthService kakaoOAuthService;
     private final JwtTokenProvider jwtTokenProvider;
-    private final UserRepository userRepository;
 
     @PostMapping("/signup")
     public String signup(@RequestBody UserRequestDto req) {
@@ -63,16 +60,18 @@ public class UserController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("유효하지 않는 refreshToken 입니다.");
         }
 
+        if (jwtTokenProvider.isBlacklisted(refreshToken)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("로그아웃된 토큰입니다.");
+        }
+
         String email = jwtTokenProvider.getEmailFromToken(refreshToken);
+        String role = jwtTokenProvider.getRoleFromToken(refreshToken);
 
         if (!jwtTokenProvider.validateRefreshToken(refreshToken)) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("서버의 토큰 정보와 일치하지 않습니다.");
         }
 
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("사용자 없음"));
-
-        String newAccessToken = jwtTokenProvider.generateAccessToken(email, user.getRole());
+        String newAccessToken = jwtTokenProvider.generateAccessToken(email, role);
 
         return ResponseEntity.ok(new LoginResponseDto(newAccessToken, null));
     }
@@ -83,12 +82,10 @@ public class UserController {
         String token = accessToken.replace("Bearer ", "");
         String email = jwtTokenProvider.getEmailFromToken(token);
 
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("사용자 없음"));
-
         jwtTokenProvider.deleteRefreshToken(email);
+        jwtTokenProvider.addToBlacklist(token);
 
-        Cookie refreshCookie = new Cookie("refreshToken", token);
+        Cookie refreshCookie = new Cookie("refreshToken", null);
         refreshCookie.setHttpOnly(true);
         refreshCookie.setMaxAge(0);
         refreshCookie.setPath("/");

@@ -16,6 +16,7 @@ public class JwtTokenProvider {
 
     private final Key key;
     private final RedisDao redisDao;
+    private static final String BLACKLIST_PREFIX = "blacklist:";
 
     private static final long ACCESS_TOKEN_EXPIRE_TIME = 1000L * 60 * 30;
     private static final long REFRESH_TOKEN_EXPIRE_TIME = 1000L * 60 * 60 * 24 * 7;
@@ -37,9 +38,10 @@ public class JwtTokenProvider {
                 .compact();
     }
 
-    public String generateRefreshToken(String email){
+    public String generateRefreshToken(String email, String role){
         String refreshToken =  Jwts.builder()
                 .setSubject(email)
+                .claim("role", role)
                 .setIssuedAt(new Date())
                 .setExpiration(new Date(System.currentTimeMillis() + REFRESH_TOKEN_EXPIRE_TIME))
                 .signWith(key)
@@ -48,6 +50,19 @@ public class JwtTokenProvider {
         redisDao.setValues(email, refreshToken, Duration.ofMillis(REFRESH_TOKEN_EXPIRE_TIME));
 
         return refreshToken;
+    }
+
+    public String getRoleFromToken(String token) {
+        try {
+            Claims claims = Jwts.parserBuilder()
+                    .setSigningKey(key)
+                    .build()
+                    .parseClaimsJws(token)
+                    .getBody();
+            return (String) claims.get("role");
+        } catch (ExpiredJwtException e) {
+            return (String) e.getClaims().get("role");
+        }
     }
 
     public String getEmailFromToken(String token) {
@@ -90,5 +105,31 @@ public class JwtTokenProvider {
         }
 
         redisDao.deleteValues(username);
+    }
+
+    public void addToBlacklist(String accessToken) {
+        try {
+            Claims claims = Jwts.parserBuilder()
+                    .setSigningKey(key)
+                    .build()
+                    .parseClaimsJws(accessToken)
+                    .getBody();
+
+            Date expiration = claims.getExpiration();
+            long now = System.currentTimeMillis();
+
+            long remainTime = expiration.getTime() - now;
+
+            if (remainTime > 0) {
+                redisDao.setValues(BLACKLIST_PREFIX + accessToken, "logout", Duration.ofMillis(remainTime));
+            }
+        } catch (Exception e) {
+
+        }
+    }
+
+    public boolean isBlacklisted(String accessToken) {
+        String key = BLACKLIST_PREFIX + accessToken;
+        return redisDao.getValues(key) != null;
     }
 }

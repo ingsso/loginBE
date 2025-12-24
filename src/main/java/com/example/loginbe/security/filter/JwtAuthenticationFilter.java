@@ -34,6 +34,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         try {
             if (token != null &&  jwtTokenProvider.validateToken(token)) { // 토큰 존재 및 유효성 검사
+                if (jwtTokenProvider.isBlacklisted(token)) {
+                    res.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                    return;
+                }
                 String email = jwtTokenProvider.getEmailFromToken(token);
 
                 UserDetails userDetails = userDetailsService.loadUserByUsername(email);

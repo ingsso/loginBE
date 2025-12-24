@@ -51,8 +51,8 @@ public class KakaoOAuthService {
                 .orElseGet(() -> userRepository.save(new User(socialId, "kakao", email, "ROLE_USER")));
 
         // 5. JWT 토큰 발행
-        String accessToken = jwtTokenProvider.generateAccessToken(user.getEmail(), user.getRole());
-        String refreshToken = jwtTokenProvider.generateRefreshToken(user.getEmail());
+        String accessToken = jwtTokenProvider.generateAccessToken(user.getSocialId(), user.getRole());
+        String refreshToken = jwtTokenProvider.generateRefreshToken(user.getSocialId(), user.getRole());
 
         setRefreshTokenCookie(response, refreshToken);
 
