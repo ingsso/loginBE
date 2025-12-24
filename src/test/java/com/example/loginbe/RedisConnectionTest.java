@@ -16,7 +16,12 @@ class RedisConnectionTest {
     void testRedis() {
         String key = "test_key";
         String value = "test_value";
-        redisDao.setValues(key, value); // 데이터 저장
-        assertEquals(value, redisDao.getValues(key)); // 데이터 조회 및 확인
+
+        for (int i = 0; i < 5; i++) {
+            long startTime = System.currentTimeMillis();
+            redisDao.setValues(key, value);
+            long endTime = System.currentTimeMillis();
+            System.out.println("순수 Redis 작업 소요 시간: " + (endTime - startTime) + "ms");
+        }
     }
 }

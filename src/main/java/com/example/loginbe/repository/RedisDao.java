@@ -12,9 +12,9 @@ public class RedisDao {
     private final RedisTemplate<String,String> redisTemplate;
     private final ValueOperations<String,String> values;
 
-    public RedisDao(RedisTemplate<String, String> redisTemplate) {
-        this.redisTemplate = redisTemplate;
-        this.values = redisTemplate.opsForValue(); // String 타입을 쉽게 처리하는 메서드
+    public RedisDao(RedisTemplate<String, Object> redisTemplate) {
+        this.redisTemplate = (RedisTemplate<String, String>) (Object) redisTemplate;
+        this.values = this.redisTemplate.opsForValue();
     }
 
     // 기본 데이터 저장
