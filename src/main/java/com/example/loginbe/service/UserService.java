@@ -17,7 +17,7 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
 
-    public void signup(UserRequestDto req) {
+    public LoginResponseDto signup(UserRequestDto req) {
         if (userRepository.findByEmail(req.getEmail()).isPresent()) {
             throw new RuntimeException("이미 존재하는 사용자입니다.");
         }
@@ -31,6 +31,11 @@ public class UserService {
                 .build();
 
         userRepository.save(user);
+
+        String accessToken = jwtTokenProvider.generateAccessToken(user.getEmail(), user.getRole());
+        String refreshToken = jwtTokenProvider.generateRefreshToken(user.getEmail(), user.getRole());
+
+        return new LoginResponseDto(accessToken, refreshToken);
     }
 
     public LoginResponseDto login(LoginRequestDto req) {

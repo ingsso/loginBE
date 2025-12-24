@@ -25,9 +25,21 @@ public class UserController {
     private final JwtTokenProvider jwtTokenProvider;
 
     @PostMapping("/signup")
-    public String signup(@RequestBody UserRequestDto req) {
-        userService.signup(req);
-        return "회원가입 성공";
+    public ResponseEntity<LoginResponseDto> signup(@RequestBody UserRequestDto req,
+                                                   HttpServletResponse res) {
+        LoginResponseDto tokens = userService.signup(req);
+
+        return getRefreshCookie(res, tokens);
+    }
+
+    private ResponseEntity<LoginResponseDto> getRefreshCookie(HttpServletResponse res, LoginResponseDto tokens) {
+        Cookie refreshCookie = new Cookie("refreshToken", tokens.getRefreshToken());
+        refreshCookie.setHttpOnly(true);
+        refreshCookie.setPath("/");
+        refreshCookie.setMaxAge(7 * 24 * 60 * 60);
+        res.addCookie(refreshCookie);
+
+        return ResponseEntity.ok(new LoginResponseDto(tokens.getAccessToken(), null));
     }
 
     @PostMapping("/login")
@@ -35,14 +47,7 @@ public class UserController {
                                                   HttpServletResponse res) {
         LoginResponseDto tokens = userService.login(req);
 
-        Cookie refreshCookie = new Cookie("refreshToken", tokens.getRefreshToken());
-        refreshCookie.setHttpOnly(true);
-        refreshCookie.setPath("/");
-        refreshCookie.setMaxAge(7 * 24 * 60 * 60);
-
-        res.addCookie(refreshCookie);
-
-        return ResponseEntity.ok(new LoginResponseDto(tokens.getAccessToken(), null));
+        return getRefreshCookie(res, tokens);
     }
 
     @PostMapping("/refresh")

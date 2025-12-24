@@ -28,6 +28,7 @@ public class User {
 
     private String role;
 
+    @Column(unique = true)
     private String phone;
 
     public User(String socialId, String provider, String email, String role) {

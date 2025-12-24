@@ -20,7 +20,7 @@ public class RedisConfig {
     private int port;
 
     @Bean
-    public LettuceConnectionFactory jedisConnectionFactory() {
+    public LettuceConnectionFactory lettuceConnectionFactory() {
         RedisStandaloneConfiguration redisStandaloneConfiguration = new RedisStandaloneConfiguration();
         redisStandaloneConfiguration.setHostName(host);
         redisStandaloneConfiguration.setPort(port);
@@ -31,7 +31,7 @@ public class RedisConfig {
     @Bean
     public RedisTemplate<String, Object> redisTemplate() {
         RedisTemplate<String, Object> redisTemplate = new RedisTemplate<>();
-        redisTemplate.setConnectionFactory(jedisConnectionFactory());
+        redisTemplate.setConnectionFactory(lettuceConnectionFactory());
 
         redisTemplate.setKeySerializer(new StringRedisSerializer());
         redisTemplate.setValueSerializer(new  StringRedisSerializer());
