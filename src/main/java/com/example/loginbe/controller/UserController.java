@@ -3,6 +3,9 @@ package com.example.loginbe.controller;
 import com.example.loginbe.dto.LoginRequestDto;
 import com.example.loginbe.dto.LoginResponseDto;
 import com.example.loginbe.dto.UserRequestDto;
+import com.example.loginbe.entity.User;
+import com.example.loginbe.repository.RedisDao;
+import com.example.loginbe.repository.UserRepository;
 import com.example.loginbe.service.KakaoOAuthService;
 import com.example.loginbe.service.UserService;
 import com.example.loginbe.security.util.JwtTokenProvider;
@@ -12,9 +15,11 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -22,6 +27,8 @@ import java.util.Map;
 public class UserController {
     private final UserService userService;
     private final KakaoOAuthService kakaoOAuthService;
+    private final UserRepository userRepository;
+    private final RedisDao redisDao;
     private final JwtTokenProvider jwtTokenProvider;
 
     @PostMapping("/signup")
@@ -51,6 +58,60 @@ public class UserController {
         return ResponseEntity.ok(kakaoOAuthService.kakaoLogin(code, res));
     }
 
+    @PostMapping("/link-social")
+    @Transactional
+    public ResponseEntity<?> linkSocial(@RequestBody Map<String, String> body, HttpServletResponse response) { // response 추가
+        String phone = body.get("phone");
+        String socialId = body.get("socialId");
+
+        // 1. Redis 인증 확인
+        String verified = (String) redisDao.getValues("SMS_VERIFIED:" + phone);
+        if (verified == null) return ResponseEntity.badRequest().body("인증이 필요합니다.");
+
+        try {
+            Optional<User> existingUserOpt = userRepository.findByPhone(phone);
+
+            if (existingUserOpt.isPresent()) {
+                User existingUser = existingUserOpt.get();
+
+                // 2-1. 임시 소셜 계정 삭제 (중복 충돌 방지)
+                userRepository.findBySocialIdAndProvider(socialId, "kakao")
+                        .ifPresent(tmp -> {
+                            userRepository.delete(tmp);
+                            userRepository.flush(); // 즉시 DB 반영하여 Unique 제약 조건 충돌 방지
+                        });
+
+                // 2-2. 기존 계정에 소셜 정보 업데이트
+                existingUser.setSocialId(socialId);
+                existingUser.setProvider("kakao");
+                userRepository.save(existingUser);
+
+                return generateLoginResponse(existingUser, response); // response 전달
+            } else {
+                User socialUser = userRepository.findBySocialIdAndProvider(socialId, "kakao")
+                        .orElseThrow(() -> new RuntimeException("유저를 찾을 수 없습니다."));
+                socialUser.setPhone(phone);
+                userRepository.save(socialUser);
+
+                return generateLoginResponse(socialUser, response); // response 전달
+            }
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("연결 실패: " + e.getMessage());
+        }
+    }
+
+    private ResponseEntity<?> generateLoginResponse(User user, HttpServletResponse response) {
+        // 1. 토큰 생성
+        // socialId를 기반으로 토큰을 생성하도록 설계된 기존 로직을 따릅니다.
+        String accessToken = jwtTokenProvider.generateAccessToken(user.getSocialId(), user.getRole());
+        String refreshToken = jwtTokenProvider.generateRefreshToken(user.getSocialId(), user.getRole());
+
+        // 2. 응답 DTO 생성
+        LoginResponseDto tokens = new LoginResponseDto(accessToken, refreshToken);
+
+        // 3. 리프레시 토큰을 쿠키에 저장 (기존에 정의하신 getRefreshCookie 활용)
+        return getRefreshCookie(response, tokens);
+    }
 
     @PostMapping("/refresh")
     public ResponseEntity<?> refresh(HttpServletRequest req) {

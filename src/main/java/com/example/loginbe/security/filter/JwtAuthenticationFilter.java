@@ -38,9 +38,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     res.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                     return;
                 }
-                String email = jwtTokenProvider.getEmailFromToken(token);
+                String identifier = jwtTokenProvider.getEmailFromToken(token);
 
-                UserDetails userDetails = userDetailsService.loadUserByUsername(email);
+                UserDetails userDetails = userDetailsService.loadUserByUsername(identifier);
 
                 UsernamePasswordAuthenticationToken authentication =
                         new UsernamePasswordAuthenticationToken(

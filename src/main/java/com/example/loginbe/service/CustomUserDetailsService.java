@@ -15,9 +15,13 @@ public class CustomUserDetailsService implements UserDetailsService {
     private final UserRepository userRepository;
 
     @Override
-    public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new UsernameNotFoundException("사용자를 찾을 수 없습니다."));
+    public UserDetails loadUserByUsername(String identifier) throws UsernameNotFoundException {
+        // 1. 먼저 이메일로 검색
+        User user = userRepository.findByEmail(identifier)
+                // 2. 이메일로 없으면 socialId로 검색 (카카오 등 소셜 로그인 대응)
+                .orElseGet(() -> userRepository.findBySocialId(identifier)
+                        .orElseThrow(() -> new UsernameNotFoundException("해당 식별자로 사용자를 찾을 수 없습니다: " + identifier)));
+
         return new CustomUserDetails(user);
     }
 }
