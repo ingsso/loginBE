@@ -18,7 +18,7 @@ public class UserService {
     private final JwtTokenProvider jwtTokenProvider;
 
     public LoginResponseDto signup(UserRequestDto req) {
-        if (userRepository.findByEmail(req.getEmail()).isPresent()) {
+        if (userRepository.findByPhone(req.getPhone()).isPresent()) {
             throw new RuntimeException("이미 존재하는 사용자입니다.");
         }
 

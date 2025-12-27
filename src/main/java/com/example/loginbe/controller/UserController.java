@@ -98,7 +98,8 @@ public class UserController {
         return "로그아웃 성공";
     }
 
-    private ResponseEntity<LoginResponseDto> getRefreshCookie(HttpServletResponse res, LoginResponseDto tokens) {
+    private ResponseEntity<LoginResponseDto> getRefreshCookie(HttpServletResponse res,
+                                                              LoginResponseDto tokens) {
         Cookie refreshCookie = new Cookie("refreshToken", tokens.getRefreshToken());
         refreshCookie.setHttpOnly(true);
         refreshCookie.setPath("/");
