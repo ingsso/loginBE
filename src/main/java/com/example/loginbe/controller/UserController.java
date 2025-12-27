@@ -32,16 +32,6 @@ public class UserController {
         return getRefreshCookie(res, tokens);
     }
 
-    private ResponseEntity<LoginResponseDto> getRefreshCookie(HttpServletResponse res, LoginResponseDto tokens) {
-        Cookie refreshCookie = new Cookie("refreshToken", tokens.getRefreshToken());
-        refreshCookie.setHttpOnly(true);
-        refreshCookie.setPath("/");
-        refreshCookie.setMaxAge(7 * 24 * 60 * 60);
-        res.addCookie(refreshCookie);
-
-        return ResponseEntity.ok(new LoginResponseDto(tokens.getAccessToken(), null));
-    }
-
     @PostMapping("/login")
     public ResponseEntity<LoginResponseDto> login(@RequestBody LoginRequestDto req,
                                                   HttpServletResponse res) {
@@ -49,6 +39,15 @@ public class UserController {
 
         return getRefreshCookie(res, tokens);
     }
+
+    @PostMapping("/kakao")
+    public ResponseEntity<?> kakaoLogin(@RequestBody Map<String, String> body,
+                                        HttpServletResponse res) {
+        String code = body.get("code");
+        LoginResponseDto tokens = kakaoOAuthService.kakaoLogin(code, res);
+        return getRefreshCookie(res, tokens);
+    }
+
 
     @PostMapping("/refresh")
     public ResponseEntity<?> refresh(HttpServletRequest req) {
@@ -99,13 +98,13 @@ public class UserController {
         return "로그아웃 성공";
     }
 
-    @PostMapping("/kakao")
-    public ResponseEntity<?> kakaoLogin(@RequestBody Map<String, String> body,
-                                        HttpServletResponse response) {
-        String code = body.get("code");
-        LoginResponseDto tokens = kakaoOAuthService.kakaoLogin(code, response);
-        return ResponseEntity.ok(tokens);
+    private ResponseEntity<LoginResponseDto> getRefreshCookie(HttpServletResponse res, LoginResponseDto tokens) {
+        Cookie refreshCookie = new Cookie("refreshToken", tokens.getRefreshToken());
+        refreshCookie.setHttpOnly(true);
+        refreshCookie.setPath("/");
+        refreshCookie.setMaxAge(7 * 24 * 60 * 60);
+        res.addCookie(refreshCookie);
+
+        return ResponseEntity.ok(new LoginResponseDto(tokens.getAccessToken(), null));
     }
-
-
 }

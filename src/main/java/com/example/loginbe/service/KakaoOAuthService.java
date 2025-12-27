@@ -44,8 +44,6 @@ public class KakaoOAuthService {
         Map<String, Object> kakaoAccount = (Map<String, Object>) userInfo.get("kakao_account");
         String email = (String) kakaoAccount.get("email");
 
-        log.info("카카오 로그인 시도 - ID: {}, Email: {}", socialId, email);
-
         // 4. 사용자 저장 또는 업데이트 (Provider: kakao)
         User user = userRepository.findBySocialIdAndProvider(socialId, "kakao")
                 .orElseGet(() -> userRepository.save(new User(socialId, "kakao", email, "ROLE_USER")));
