@@ -4,6 +4,7 @@ import com.example.loginbe.dto.LoginRequestDto;
 import com.example.loginbe.dto.LoginResponseDto;
 import com.example.loginbe.dto.UserRequestDto;
 import com.example.loginbe.entity.User;
+import com.example.loginbe.repository.RedisDao;
 import com.example.loginbe.repository.UserRepository;
 import com.example.loginbe.security.util.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
@@ -16,10 +17,16 @@ public class UserService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
+    private final RedisDao redisDao;
 
     public LoginResponseDto signup(UserRequestDto req) {
         if (userRepository.findByPhone(req.getPhone()).isPresent()) {
-            throw new RuntimeException("이미 존재하는 사용자입니다.");
+            throw new RuntimeException("이미 사용 중인 전화번호 입니다.");
+        }
+
+        String verified = (String) redisDao.getValues("SMS_VERIFIED:" + req.getPhone());
+        if (verified == null || !verified.equals("true")) {
+            throw new RuntimeException("휴대폰 인증이 완료되지 않았습니다.");
         }
 
         User user = User.builder()
@@ -31,6 +38,8 @@ public class UserService {
                 .build();
 
         userRepository.save(user);
+
+        redisDao.deleteValues("SMS_VERIFIED:" + req.getPhone());
 
         String accessToken = jwtTokenProvider.generateAccessToken(user.getEmail(), user.getRole());
         String refreshToken = jwtTokenProvider.generateRefreshToken(user.getEmail(), user.getRole());

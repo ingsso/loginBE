@@ -25,11 +25,15 @@ public class UserController {
     private final JwtTokenProvider jwtTokenProvider;
 
     @PostMapping("/signup")
-    public ResponseEntity<LoginResponseDto> signup(@RequestBody UserRequestDto req,
+    public ResponseEntity<?> signup(@RequestBody UserRequestDto req,
                                                    HttpServletResponse res) {
-        LoginResponseDto tokens = userService.signup(req);
-
-        return getRefreshCookie(res, tokens);
+        try {
+            LoginResponseDto tokens = userService.signup(req);
+            return getRefreshCookie(res, tokens);
+        } catch (RuntimeException e) {
+            // 중복 번호 등 비즈니스 로직 예외 발생 시 400 Bad Request와 메시지 반환
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+        }
     }
 
     @PostMapping("/login")
@@ -44,8 +48,7 @@ public class UserController {
     public ResponseEntity<?> kakaoLogin(@RequestBody Map<String, String> body,
                                         HttpServletResponse res) {
         String code = body.get("code");
-        LoginResponseDto tokens = kakaoOAuthService.kakaoLogin(code, res);
-        return getRefreshCookie(res, tokens);
+        return ResponseEntity.ok(kakaoOAuthService.kakaoLogin(code, res));
     }
 
 

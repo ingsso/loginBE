@@ -33,27 +33,40 @@ public class KakaoOAuthService {
     private String redirectUri;
 
     public LoginResponseDto kakaoLogin(String code, HttpServletResponse response) {
-        // 1. 인가코드로 액세스 토큰 요청
         String kakaoAccessToken = getKakaoAccessToken(code);
-
-        // 2. 액세스 토큰으로 사용자 정보 요청
         Map<String, Object> userInfo = getKakaoUserInfo(kakaoAccessToken);
 
-        // 3. 응답 데이터 파싱
-        String socialId = String.valueOf(userInfo.get("id")); // 고유 ID
+        String socialId = String.valueOf(userInfo.get("id"));
         Map<String, Object> kakaoAccount = (Map<String, Object>) userInfo.get("kakao_account");
         String email = (String) kakaoAccount.get("email");
 
-        // 4. 사용자 저장 또는 업데이트 (Provider: kakao)
-        User user = userRepository.findBySocialIdAndProvider(socialId, "kakao")
-                .orElseGet(() -> userRepository.save(new User(socialId, "kakao", email, "ROLE_USER")));
+        return userRepository.findBySocialIdAndProvider(socialId, "kakao")
+                .map(user -> {
+                    if (user.getPhone() == null) {
+                        // 번호 없는 기존 소셜 유저
+                        return LoginResponseDto.builder()
+                                .accessToken("NEED_PHONE_AUTH")
+                                .refreshToken(socialId) // 여기에 socialId를 담음
+                                .build();
+                    }
+                    // 정상 로그인 처리
+                    return generateLoginResponse(user, response);
+                })
+                .orElseGet(() -> {
+                    // 신규 소셜 유저 저장
+                    userRepository.save(new User(socialId, "kakao", email, "ROLE_USER"));
+                    return LoginResponseDto.builder()
+                            .accessToken("NEED_PHONE_AUTH")
+                            .refreshToken(socialId) // 여기에 socialId를 담음
+                            .build();
+                });
+    }
 
-        // 5. JWT 토큰 발행
+    // 중복 코드를 줄이기 위한 토큰 발급 메서드
+    private LoginResponseDto generateLoginResponse(User user, HttpServletResponse response) {
         String accessToken = jwtTokenProvider.generateAccessToken(user.getSocialId(), user.getRole());
         String refreshToken = jwtTokenProvider.generateRefreshToken(user.getSocialId(), user.getRole());
-
         setRefreshTokenCookie(response, refreshToken);
-
         return new LoginResponseDto(accessToken, null);
     }
 
